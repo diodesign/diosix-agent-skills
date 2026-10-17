@@ -43,6 +43,10 @@ never sign off on broken, incomplete, or unverified code.
      `docs/style-guide.md` and `docs/development.md`.
    - Re-run `zig fmt --check` and `./scripts/build.sh test --summary all` after
      any review fixes.
+5. **When Unsure, Stop and Ask the Lead Maintainer**: If a review uncovers an
+   architectural trade-off or missing primitive (for instance, whether to add a
+   dynamic formatting helper to M-mode's allocator or use a different mechanism),
+   stop and ask the lead maintainer for direction before making assumptions.
 
 ## Focused Reference Guides
 

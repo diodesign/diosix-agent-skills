@@ -48,11 +48,20 @@ Everywhere else — including M-mode post-heap initialization (`boot.zig`,
 `guest.zig`, `dt.zig`, `sbi.zig`) and all U-mode tools (`diosix-ctl`,
 `diosix-gui`, `diosix-config`, `guest-shim`) — pass and use `std.mem.Allocator`.
 
-## 3. Allocator Selection by Layer
+## 3. Allocator Selection by Layer & Asking When Unsure
 
-- **M-mode Hypervisor**: Obtain the current physical core's allocator via
-  `pcore.this().allocator.allocator()`, or the guest/system heap allocator
-  passed down from `bootCpuInit`.
+- **M-mode Hypervisor**: Obtain the current physical core's `std.mem.Allocator`
+  interface via `pcore.this().allocator.allocator()`, or use the guest/system
+  allocator passed down from `bootCpuInit`.
+  - **Important — Ask When Unsure**: Custom M-mode structures like
+    `HeapAllocator` (`hypervisor/core/alloc.zig`) only implement the core
+    allocation primitives (`alloc`, `resize`, `remap`, `free`) and do not
+    directly define convenience methods like `print` on `HeapAllocator` itself
+    (whereas `std.mem.Allocator` provides `print` in the standard library, and
+    M-mode console logging uses `debug.printf`). If you encounter a place where
+    a required helper is missing or you are unsure whether to extend a
+    hypervisor allocator or use `std.mem.Allocator` / `debug.printf`, **stop
+    and ask the lead maintainer for direction rather than guessing**.
 - **U-mode CLI Tools (`diosix-ctl`, `diosix-config`)**:
   - Use `std.heap.ArenaAllocator` for short-lived command execution where all
     command memory can be freed at once on exit, or pass `gpa` /

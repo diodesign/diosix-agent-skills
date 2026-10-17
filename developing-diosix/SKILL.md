@@ -48,6 +48,12 @@ and strictly bounded.
    blocks inside the source file they test (calling
    `std.testing.refAllDecls(@This())`). Place multi-component integration
    tests in dedicated `tests/` directories.
+10. **When Unsure, Stop and Ask the Lead Maintainer**: Never guess on
+    architectural decisions, ambiguous requirements, or missing subsystem
+    capabilities. For example, if a rule recommends `allocator.print(...)` and
+    a custom allocator (such as M-mode's `HeapAllocator`) does not directly
+    provide a `print` method, stop and ask the lead maintainer whether to
+    implement one or use an alternative before proceeding.
 
 ## M-Mode vs. U-Mode Execution Environments
 

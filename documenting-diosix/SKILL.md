@@ -38,6 +38,9 @@ comply with `docs/style-guide.md`.
      Interface (SBI)`), then use only the abbreviation (`SBI`) thereafter.
    - Use numbered lists **strictly** for sequential multi-step procedures and
      bulleted lists for non-sequential items.
+5. **When Unsure, Stop and Ask the Lead Maintainer**: If intended behavior,
+   terminology, or audience scope is ambiguous, stop and ask the lead
+   maintainer for clarification rather than guessing or inventing details.
 
 ## Focused Reference Guides
 
