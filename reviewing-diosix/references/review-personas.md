@@ -61,6 +61,15 @@ structural bloat.*
       at runtime in Zig (e.g., `synthesizeMinimalRiscv64Elf`)? Replace runtime
       binary synthesis with real assembly/source files compiled at build time
       or dedicated image-building scripts.
+- [ ] **No Legacy Candidate-List Accumulation (The Candidate-List Smell)**:
+      Does the code introduce or expand multi-path search arrays (such as
+      `DEFAULT_GUEST_CANDIDATES` or `GUEST_SHIM_CANDIDATES`) to avoid updating
+      co-versioned internal scripts or modules? Reject historical path probing
+      for in-tree artifacts: update all in-tree producers, consumers, and tests
+      atomically to use a single canonical path, handle persistent disk layout
+      migrations once at the boot/install boundary, and require a
+      `// DEPRECATED(26.x): remove in 27.0` comment on any genuine external
+      compatibility alias.
 - [ ] **No Swallowed Errors**: Are all error unions handled explicitly via
       `try`, `catch`, or `errdefer` (no silent `_ = foo() catch {};`)?
 

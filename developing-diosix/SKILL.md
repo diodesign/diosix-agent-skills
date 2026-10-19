@@ -78,7 +78,16 @@ first pass without pre-commit rework.
     blocks inside the source file they test (calling
     `std.testing.refAllDecls(@This())`). Place multi-component integration
     tests in dedicated `tests/` directories.
-12. **When Unsure, Stop and Ask the Lead Maintainer**: Never guess on
+12. **Backwards Compatibility Without Legacy Fallback Accumulation**: Preserve
+    compatibility for external contracts (SBI hypercall ABI, `/dev/diosix`
+    ioctls, documented `dsx` CLI commands/JSON schemas, and user-authored
+    `/etc/diosix/*.toml` files), but never accumulate multi-path fallback
+    arrays (`DEFAULT_GUEST_CANDIDATES`) for co-versioned internal plumbing.
+    When producer and consumer ship together in this repository, update all
+    in-tree producers, consumers, and tests atomically to use a single
+    canonical path or symbol, and handle persistent disk layout upgrades once
+    at the boot/install boundary rather than probing historical paths forever.
+13. **When Unsure, Stop and Ask the Lead Maintainer**: Never guess on
     architectural decisions, ambiguous requirements, or missing subsystem
     capabilities. Stop and ask the lead maintainer before proceeding.
 

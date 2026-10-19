@@ -155,7 +155,45 @@ category-specific replacements:
   carry least-privilege file permissions (`0644` for public read-only configs,
   `0600` for sensitive key/state files).
 
-## 5. Testing Architecture
+## 6. Backwards Compatibility vs. Legacy Accumulation
+
+Maintain strict backwards compatibility for external contracts without letting
+defensive fallback lists (`DEFAULT_GUEST_CANDIDATES`, `GUEST_SHIM_CANDIDATES`)
+accumulate across internal modules:
+
+1. **External Contracts vs. Co-Versioned Internal Plumbing**:
+   - **External Contracts (Protect Compatibility)**: The SBI hypercall ABI
+     (`hypervisor/interface/sbi.zig`), Linux driver ioctls
+     (`tools/driver/diosix.h`), documented `dsx` CLI commands/flags/JSON
+     schemas, and user-authored configuration files (`diosix.toml`,
+     `manifest.toml`).
+   - **Co-Versioned Internal Plumbing (Update Atomically, Never Accumulate)**:
+     Internal Root VM filesystem paths, build scripts, init scripts, and test
+     harnesses (`scripts/build_rootvm.sh`, `S50diosix`, `loader.zig`,
+     `scripts/test_manifest_integration.py`) that are built and shipped
+     together from the same repository. When changing an internal path or
+     symbol, grep and update all in-tree producers, consumers, and tests in the
+     same commit instead of appending to a fallback search list.
+2. **Migrate Once at the Boundary, Never Probe Everywhere at Runtime**:
+   - Runtime code must consult a single canonical path (resolved via
+     `sysconfig.zig` or a single constant) rather than probing historical
+     directories (`/boot`, `/var/lib/diosix`, `/usr/share/diosix`).
+   - If persistent user storage (`/var/lib/diosix` on `/dev/vda`) may contain
+     state from an older release, migrate or symlink that state once at the
+     boot/upgrade boundary (`S50diosix` or `dsx host install`).
+3. **The "Candidate-List Smell"**:
+   - Multi-entry candidate arrays are only valid when selecting between
+     distinct architectural tiers with different semantics (for example,
+     user-installed `default.elf` falling back to the built-in recovery
+     `micro-guest.elf`). Never use candidate arrays to paper over inconsistent
+     internal paths.
+4. **Sunset Tags for External Compatibility Shims**:
+   - When an external compatibility alias is required (such as a deprecated CLI
+     flag or TOML key), isolate it in the parser layer, translate it
+     immediately to the canonical internal representation, and annotate it with
+     `// DEPRECATED(26.x): remove in 27.0 — use <canonical>.`
+
+## 7. Testing Architecture
 
 - **Inline Unit Tests**: Every `.zig` source file must include `test` blocks at
   the bottom of the same file testing its pure functions, parsers, formatters,

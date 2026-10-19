@@ -40,19 +40,21 @@ the authoring skills eliminates pre-commit and pre-merge rework.
         hierarchy instead of flat `prefix_subname.zig` files, lowercase hex
         literals `0xfff`, named constants/helpers like `PAGE_OFFSET_MASK` and
         `crossesPageBoundary` instead of magic bitmasks, zero copy-paste
-        duplication of `Spinlock`/alignment/path validators, explicit
-        fixed-width `u64` ABI types instead of `usize`, explicit `usize` type
-        annotations on `@min`/`@max` with literals, componentizing >500-line
-        files without truncation, <=80-col limit, dynamic vs. static buffers,
-        externalizing policy to build/run-time config, no on-the-fly
-        binary/ELF/image synthesis in Zig, no generated files inside
-        `tools/overlay-common/`)
+        duplication of `Spinlock`/alignment/path validators, no historical
+        candidate-list fallback arrays like `DEFAULT_GUEST_CANDIDATES` for
+        co-versioned internal paths, explicit fixed-width `u64` ABI types
+        instead of `usize`, explicit `usize` type annotations on `@min`/`@max`
+        with literals, componentizing >500-line files without truncation,
+        <=80-col limit, dynamic vs. static buffers, externalizing policy to
+        build/run-time config, no on-the-fly binary/ELF/image synthesis in Zig,
+        no generated files inside `tools/overlay-common/`)
      2. **Paranoid Security Expert** (hypervisor blast-radius isolation,
         single-copy double-fetch/TOCTOU prevention on guest memory, IRQ-safe
         locking via `atomic.Spinlock`, crypto/page zeroization, checked
         arithmetic bounds)
      3. **Diosix Maintainer** (modularity, readability, `defer`/`errdefer`,
-        ABI `comptime` size/offset assertions, submodule test coverage)
+        ABI `comptime` size/offset assertions, external-contract backwards
+        compatibility vs. atomic in-tree migration, submodule test coverage)
      4. **Beginner & Expert User** (zero-toil UX, clear English errors, config
         flexibility, performance)
 3. **Rust-Style Borrow-Checker & Pointer Lifetime Audit**:
