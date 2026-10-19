@@ -16,15 +16,24 @@ structural bloat.*
       `PAGE_SIZE`, `alignUp`/`alignDown`, `isValidSafeName`, JSON escaping)
       imported from `hypervisor/core/atomic.zig`, `hypervisor/interface/`, or
       `common.zig` rather than duplicated in leaf files?
-- [ ] **Fixed-Width ABI Types, Lowercase Hex & Named Bitmasks**: Do
-      `extern struct` / `packed struct` ABI types and 64-bit guest registers use
-      explicit `u64` / `u32` / `u16` / `u8` instead of `usize`? Are `@min` /
-      `@max` calls with comptime literals explicitly typed
+- [ ] **Fixed-Width ABI Types & `@min` Type Annotations**: Do `extern struct` /
+      `packed struct` ABI types and 64-bit guest registers use explicit `u64` /
+      `u32` / `u16` / `u8` instead of `usize`? Are `@min` / `@max` calls with
+      comptime literals explicitly typed
       (`const row_w: usize = @min(w, 1280);`) so Zig does not infer a narrow
-      integer type (`u11`)? Are all hexadecimal literals lowercase (`0xfff`,
-      `0xffff_ffff`), and are raw magic bitmasks (`(vaddr & 0xfff) > 0xffc`)
-      replaced with named constants or helpers (`PAGE_OFFSET_MASK`,
-      `crossesPageBoundary`)?
+      integer type (`u11`)?
+- [ ] **No Magic Numbers, Unnamed Bitmasks, or Uppercase Hex**:
+      - **Explanatory-Comment Smell**: Does any numeric literal need a comment
+        to explain what it means (`return 15; // Store page fault.`,
+        `flags & (1 << 4) // User`)? Replace it with a named constant or `enum`
+        tag (`@backingInt(riscv.Cause.store_page_fault)`, `PTE.U`).
+      - **Pre-Computed Mask Smell**: Does the code use pre-computed hex masks or
+        thresholds like `(vaddr & 0xfff) > 0xffc` or `(pte & 0xe) == 0`?
+        Replace them with named constants (`PAGE_OFFSET_MASK`,
+        `PAGE_SIZE - size`, `PTE.RWX`) and self-documenting inline helpers
+        (`crossesPageBoundary(vaddr, @sizeOf(u32))`, `PTE.isPointer(pte)`).
+      - **Lowercase Hexadecimal**: Are all hexadecimal literals written in
+        lowercase (`0xfff`, `0xffff_ffff`, never `0xFFF`)?
 - [ ] **No Static Buffer Guessing**: Are fixed stack buffers (`var buf:
       [4096]u8`) used where an allocator is available? Replace them with
       dynamic allocations (`allocator.print`, `allocator.alloc`, `ArrayList`).

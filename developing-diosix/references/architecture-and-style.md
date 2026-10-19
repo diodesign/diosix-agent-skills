@@ -96,7 +96,40 @@ engineering, and TigerStyle (**Safety > Performance > Developer Experience**).
   explicit justification. Propagate errors with `try` or handle every error tag
   in an explicit `switch (err)`.
 
-## 4. Configuration Externalization & Overlay Hygiene
+## 4. Eliminating Magic Numbers & Unnamed Bitmasks
+
+Never scatter unnamed numeric or hexadecimal literals (`0xfff`, `0xffc`, `0xe`,
+`13`, `15`, `1 << 18`) in expressions. Apply these two smell tests and
+category-specific replacements:
+
+1. **The "Explanatory Comment" Smell**: If a literal requires an inline comment
+   to explain what it means (`return 15; // Store page fault.` or
+   `flags & (1 << 4) // User`), the literal is a magic number. Replace it with a
+   named constant or `enum` tag (`TRAP_STORE_PAGE_FAULT`, `PTE.U`).
+2. **The "Pre-Computed / Derived Mask" Smell**: Never write pre-computed derived
+   hex masks like `if ((vaddr & 0xfff) > 0xffc)` or `if ((pte & 0xe) == 0)`.
+   Pre-computing `4096 - 4` as `0xffc` erases the relationship between the page
+   size and the access width and makes a page-boundary straddle check look like
+   a range check on the first 4 KiB of memory. Express derived values via named
+   constants and `@sizeOf` (`PAGE_SIZE - @sizeOf(u32)`, `PTE.R | PTE.W | PTE.X`)
+   and encapsulate multi-part bit checks in inline predicate helpers
+   (`crossesPageBoundary(vaddr, @sizeOf(u32))`, `PTE.isValid(pte)`).
+3. **How to Replace Magic Numbers by Category**:
+   - **Page Geometry & Alignment (`0xfff`, `0xffc`, `12`)**: Use `PAGE_SHIFT`,
+     `PAGE_SIZE = 1 << PAGE_SHIFT`, `PAGE_OFFSET_MASK = PAGE_SIZE - 1`, and
+     inline helpers (`crossesPageBoundary`, `alignUp`, `alignDown`).
+   - **Hardware Bitfields & PTE Flags (`1 << 18`, `0xe`, `0x1f`)**: Group into
+     namespace structs (`MSTATUS.SUM`, `PTE.V`, `PTE.RWX`) or `packed struct`
+     types with inline predicates (`PTE.isPointer(pte)`).
+   - **Exception Causes, CSRs & Protocol IDs (`13`, `15`, `0x14d`)**: Use typed
+     `enum` values from `hypervisor/interface/`
+     (`@backingInt(riscv.Cause.load_page_fault)`, `riscv.CSR.STIMECMP`).
+   - **Sentinel Values (`0xffff_ffff`)**: Define named sentinels
+     (`INVALID_VADDR_PAGE`, `TIMER_INFINITY`) or use Zig optionals (`?u32`).
+   - **Lowercase Hexadecimal**: Always write hex literals in lowercase (`0xfff`,
+     `0x8000_0000`, `0xffff_ffff`, never `0xFFF`).
+
+## 5. Configuration Externalization & Overlay Hygiene
 
 - **Mechanism in Code, Policy in Build/Run-Time Config**: Code must focus on
   implementation (mechanism); policy-level settings and tunables belong in
