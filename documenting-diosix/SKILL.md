@@ -11,17 +11,19 @@ description: >-
 
 Every documentation page in `docs/` and `README.md` must stay 100% synchronized
 with the implementation in `hypervisor/`, `tools/`, and `scripts/`, and must
-comply with `docs/style-guide.md`.
+comply with `docs/style-guide.md` so documentation passes `reviewing-diosix` on
+the first pass.
 
 ## Core Mandates
 
 1. **Clear, Correct English Prose (Table Stakes)**: All documentation must be
-   written in English with verified spelling, sound grammar, and concise
-   wording that never sacrifices technical clarity or precision.
+   written in American English with verified spelling, sound grammar, and
+   concise wording that never sacrifices technical clarity or precision.
 2. **Truth in Documentation**: Never leave stale CLI flags, SBI function IDs,
-   file paths, or configuration keys in `docs/`. Every code change that alters
-   behavior, CLI options, or config schemas must update `docs/` in the same
-   change.
+   ioctl numbers, C struct layouts (`uint64_t` vs `unsigned long`), file paths,
+   or configuration keys in `docs/`. Every code change that alters behavior,
+   CLI options, modular file paths, or config schemas must update `docs/` in
+   the same change.
 3. **Dual-Audience Design**: Cater explicitly to two distinct audiences:
    - **Users (Beginners & Experts)**: Operators booting Diosix, running the
      guided tour, launching guest VMs with `dsx`, or configuring declarative
@@ -29,7 +31,10 @@ comply with `docs/style-guide.md`.
    - **Developers & Maintainers**: Engineers building, testing, debugging, and
      extending the M-mode hypervisor, S-mode `dynarec`, and U-mode tools.
 4. **Strict Style Compliance (`docs/style-guide.md`)**:
-   - Wrap prose at **<= 80 characters** per line.
+   - Wrap prose, list items, and code blocks at **<= 80 characters** per line
+     (excluding markdown table rows and long URLs). Use file basenames in
+     markdown link text (`[`S50dropbear`](../tools/.../S50dropbear)`) so link
+     lines wrap cleanly within 80 columns.
    - Use **active voice** and **present tense** ("The hypervisor validates the
      GPA," never "The GPA will be validated by the hypervisor").
    - Use **sentence-case headings** (`## Hierarchical guest model`, never
@@ -46,7 +51,7 @@ comply with `docs/style-guide.md`.
 
 Read the relevant reference file before drafting or editing documentation:
 
-- **[Style, Voice & Canonical Terminology](./references/style-and-terminology.md)**:
+- **[Style & Canonical Terminology](./references/style-and-terminology.md)**:
   English grammar/spelling standards, 80-column wrapping, abbreviation
   expansion rules, and canonical hardware/virtualization definitions
   (`Host build machine`, `Host hardware`, `Target platform`, `HPA`, `GPA`,

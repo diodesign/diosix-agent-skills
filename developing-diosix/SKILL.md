@@ -12,7 +12,8 @@ description: >-
 
 Prioritize **Safety > Security > Correctness > Maintainability**. Write
 idiomatic Zig 0.17.0 and RISC-V assembly that is self-documenting, memory-safe,
-and strictly bounded.
+and strictly bounded so that every change passes `reviewing-diosix` on the
+first pass without pre-commit rework.
 
 ## Core Mandates
 
@@ -21,39 +22,61 @@ and strictly bounded.
    test suite (`./scripts/build.sh` and `./scripts/build.sh test`). Never leave
    broken code, stubbed `TODO` placeholders, mocked production paths, or
    partially implemented features.
-2. **Line & File Limits**: Wrap all code and comments at **<= 80 columns**.
-   Keep source files **<= 500 lines**; split larger files into cohesive
-   domain submodules before they become monolithic.
-3. **Concise Filenames**: Use `snake_case` filenames without redundant project
-   or directory prefixes (use `api.zig` and `main.c`, never `diosix_api.zig`
-   or `diosix-alsa-init.c`).
+2. **Line & File Limits (Componentize into Subfolders, Never Truncate)**: Wrap
+   all code and comments at **<= 80 columns**. Keep source files **<= 500
+   lines**. When a file grows past 500 lines, never truncate its functionality
+   or tests; decompose it into a dedicated subfolder (`panes/vm.zig`,
+   `vm/run.zig`, `tests/gui.zig`) rather than proliferating flat
+   `prefix_subname.zig` files (`panes_vm.zig`, `vm_run.zig`, `tests_gui.zig`),
+   and wire every submodule into the parent's `test` block
+   (`_ = @import("vm/run.zig");`).
+3. **Subfolders Over Prefix-Underscore Filenames & Zero Copy-Paste**: Use
+   concise `snake_case` filenames without redundant project, directory, or
+   sibling prefixes (use `api.zig`, `main.c`, `vm/info.zig`, and
+   `tests/nav.zig`, never `diosix_api.zig`, `diosix-alsa-init.c`,
+   `vm_info.zig`, or `tests_nav.zig`). Never duplicate shared primitives (such
+   as `Spinlock`, page-alignment math, path-traversal validators, or ABI
+   constants) across modules; import them from `hypervisor/interface/`,
+   `hypervisor/core/atomic.zig`, or `common.zig`.
 4. **Idiomatic Dispatch**: Never write `if (std.mem.eql(...)) else if (...)`
    chains for commands, flags, or config keys. Define an `enum`, parse with
    `std.meta.stringToEnum(EnumType, slice)`, and dispatch with `switch`.
-5. **Dynamic Allocation Over Static Guessing**: Only early M-mode boot code
+5. **Explicit Fixed-Width ABI Types & Narrow-Inference Guards**: Use explicit
+   fixed-width types (`u64`, `u32`, `u16`, `u8`) in all ABI/hardware structs
+   (`extern struct`, `packed struct`) and 64-bit guest register state — never
+   `usize` or C `unsigned long`. Always annotate local variables initialized
+   from `@min`/`@max` with a comptime literal
+   (`const w: usize = @min(n, 1280);`) so Zig does not infer a narrow integer
+   type (`u11`) that overflows later.
+6. **Dynamic Allocation Over Static Guessing**: Only early M-mode boot code
    executing before heap initialization may use fixed static buffers. Once an
    allocator is available, allocate and grow buffers dynamically rather than
    guessing fixed stack buffer sizes (e.g., avoid `var buf: [4096]u8`).
-6. **Memory Ownership & Cleanup**: Pair every allocation (`alloc`, `create`,
+7. **Memory Ownership & Cleanup**: Pair every allocation (`alloc`, `create`,
    `dupe`, `print`, `mmap`) immediately with `defer` or `errdefer`. Zeroize
    freed guest pages and cryptographic secrets (`std.crypto.secureZero`).
-7. **Enterprise Hypervisor Isolation**: Never panic in M-mode due to guest
+8. **Enterprise Hypervisor Isolation**: Never panic in M-mode due to guest
    input or state; return an SBI error or terminate the offending guest
-   subtree. Copy shared guest memory once before validation to prevent
-   double-fetch (TOCTOU) vulnerabilities.
-8. **Mechanism in Code, Policy in Config**: Do not hardcode magic numbers or
-   tunable defaults in source code; load operational parameters from
-   `/etc/diosix/*.toml` with safe fallback defaults.
-9. **Co-located Unit Tests & Separate Integration Tests**: Place unit `test`
-   blocks inside the source file they test (calling
-   `std.testing.refAllDecls(@This())`). Place multi-component integration
-   tests in dedicated `tests/` directories.
-10. **When Unsure, Stop and Ask the Lead Maintainer**: Never guess on
+   subtree. Copy shared guest memory once (`@memcpy`) into hypervisor-owned
+   memory before validation to prevent double-fetch (TOCTOU) vulnerabilities.
+9. **Mechanism in Code, Policy in Build/Run-Time Config**: Never hardcode
+   policy-level settings or tunable defaults in Zig code. Move tunables and
+   settings to build-time configuration (`build.zig` options /
+   `boot/hypervisor.conf`) or run-time configuration files
+   (`/etc/diosix/*.toml`, keeping `key = "value"` on single lines <= 80 cols).
+10. **Build Binaries & Images at Build Time, Not on the Fly in Zig**: Avoid
+    assembling ELF binaries, machine-code shims, or media images word-by-word at
+    runtime in Zig. Keep shims in assembly or Zig source files compiled during
+    build time, use dedicated scripts to build media images, and never place
+    generated build outputs inside `tools/overlay-common/` (use
+    `.zig-cache/overlay-dynamic/`).
+11. **Co-located Unit Tests & Separate Integration Tests**: Place unit `test`
+    blocks inside the source file they test (calling
+    `std.testing.refAllDecls(@This())`). Place multi-component integration
+    tests in dedicated `tests/` directories.
+12. **When Unsure, Stop and Ask the Lead Maintainer**: Never guess on
     architectural decisions, ambiguous requirements, or missing subsystem
-    capabilities. For example, if a rule recommends `allocator.print(...)` and
-    a custom allocator (such as M-mode's `HeapAllocator`) does not directly
-    provide a `print` method, stop and ask the lead maintainer whether to
-    implement one or use an alternative before proceeding.
+    capabilities. Stop and ask the lead maintainer before proceeding.
 
 ## M-Mode vs. U-Mode Execution Environments
 
@@ -71,14 +94,16 @@ Read the relevant reference file before writing or modifying code:
 
 - **[Zig 0.17.0 Idioms & Builtins](./references/zig-0-17-idioms.md)**:
   Up-to-date Zig 0.17 syntax (`@backingInt`, `@splat`, `allocator.print`,
-  `SafeAllocator`, `stringToEnum`, `@ptrCast` for `extern struct`, build
-  cache purity).
+  `SafeAllocator`, `stringToEnum`, `@ptrCast` for `extern struct`, fixed-width
+  ABI types, `@min` type annotations, 80-column formatting with trailing commas,
+  and build cache purity).
 - **[Memory Management & Dynamic Buffers](./references/memory-and-buffers.md)**:
   M-mode vs. U-mode allocator patterns, dynamic buffer growth, `defer` /
   `errdefer` discipline, secret zeroization, and out-pointer initialization.
-- **[Architecture, Modularity & TigerStyle](./references/architecture-and-style.md)**:
-  Complete feature implementation, file sizing, naming rules, bounded loops,
-  positive invariants, assertion pairing, and configuration externalization.
-- **[RISC-V Assembly & Enterprise Hypervisor Rules](./references/riscv-and-mmode.md)**:
+- **[Architecture & TigerStyle](./references/architecture-and-style.md)**:
+  Complete feature implementation, modular file splitting without losing unit
+  tests, zero copy-paste duplication, bounded loops, assertion pairing, and
+  overlay/configuration hygiene.
+- **[RISC-V & Enterprise Hypervisor](./references/riscv-and-mmode.md)**:
   RV64 assembly conventions, CSR mocking, blast-radius containment, double-fetch
-  prevention, IRQ-safe spinlock ordering, and G-stage/PMP isolation.
+  prevention pattern, IRQ-safe spinlock ordering, and G-stage/PMP isolation.

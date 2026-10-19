@@ -31,14 +31,16 @@ clearly separated sections within a document) to its intended reader.
 - Emphasize:
   - Privilege separation between M-mode (`hypervisor/`), S-mode `dynarec`
     (`hypervisor/hardware/emulation/`), and U-mode (`tools/`).
-  - Exact SBI Extension ID (`0x0a000008` / `"DIOS"`) and Function IDs (`FIDs`)
-    in `docs/interface.md`.
+  - Exact SBI Extension ID (`0x0a000008` / `"DIOS"`), Function IDs (`FIDs`
+    `0..24`), and explicit fixed-width C struct layouts (`uint64_t`, `uint32_t`,
+    `uint16_t`, `uint8_t`) in `docs/interface.md`.
   - Memory ownership (`defer`/`errdefer`, dynamic allocation once an allocator
     is available), 80-column line limits, and 500-line file limits in
     `docs/development.md` and `docs/style-guide.md`.
   - Testing structure: unit tests co-located inside the `.zig` source files
-    they test (`./scripts/build.sh test`), and integration tests placed in
-    dedicated `tests/` folders (and `./scripts/test_manifest_integration.py`).
+    they test (`./scripts/build.sh test --summary all`), and integration tests
+    placed in dedicated `tests/` folders (and
+    `./scripts/test_manifest_integration.py`).
 
 ## 3. Code-to-Documentation Synchronization Matrix
 
@@ -47,7 +49,7 @@ When modifying code, inspect and update the corresponding documentation files:
 | Code Area Modified | Documentation Files to Update |
 | :--- | :--- |
 | `tools/diosix-ctl/` commands, flags, or `/etc/diosix/*.toml` | `docs/cli.md`, `docs/run.md`, `docs/security.md` |
-| `hypervisor/interface/` or `hypervisor/core/sbi.zig` | `docs/interface.md`, `docs/architecture.md`, `docs/security.md` |
-| `tools/diosix-gui/` or seat profiles / OSK | `docs/gui-architecture.md`, `docs/cli.md` |
+| `hypervisor/interface/`, `hypervisor/core/sbi.zig`, or `tools/driver/` | `docs/interface.md`, `docs/architecture.md`, `docs/security.md` |
+| `tools/diosix-gui/` modules, seat profiles, or OSK | `docs/gui-architecture.md`, `docs/cli.md`, `docs/release-architecture.md` |
 | `build.zig`, `scripts/build*.sh`, or test layout | `docs/build.md`, `docs/development.md`, `README.md` |
 | Coding conventions, file limits, or testing policy | `docs/style-guide.md`, `docs/development.md` |

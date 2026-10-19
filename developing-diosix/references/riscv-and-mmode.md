@@ -10,13 +10,30 @@
      exhaustions must return deterministic SBI error codes (`SBI_ERR_DENIED`,
      `SBI_ERR_INVALID_ADDRESS`, `SBI_ERR_INVALID_PARAM`, `SBI_ERR_FAILED`) or
      cleanly terminate only the offending guest subtree (`guest.terminate`).
-2. **Double-Fetch (TOCTOU) Prevention on Guest Memory**:
+2. **Double-Fetch (TOCTOU) Prevention & GPA Validation Pattern**:
    - Guest RAM can be mutated concurrently by other virtual cores of the same
      guest. When M-mode or a parent VM reads structured data from guest memory
-     (such as hypercall buffers, manifests, Whisper frames, or VirtIO rings),
-     copy the bytes into private hypervisor/parent memory **once** before
-     validating and acting on them. Never validate in-place and re-read from
-     guest memory.
+     (such as `CharterArgs`, `WhisperArgs`, manifests, or VirtIO rings),
+     validate the GPA range and copy the bytes into private hypervisor memory
+     **once** before validating and acting on them:
+     ```zig
+     // 1. Bound size and check arithmetic overflow before touching memory.
+     if (len == 0 or len > MAX_PAYLOAD_SIZE) return sbi.SBI_ERR_INVALID_PARAM;
+     const end_gpa = std.math.add(u64, gpa, len) catch {
+         return sbi.SBI_ERR_INVALID_ADDRESS;
+     };
+     _ = end_gpa;
+
+     // 2. Copy page-by-page via guest.gpaToHpa into a private buffer once.
+     var local_buf: [MAX_PAYLOAD_SIZE]u8 = undefined;
+     if (!guest.copyFromGuest(local_buf[0..len], gpa)) {
+         return sbi.SBI_ERR_INVALID_ADDRESS;
+     }
+
+     // 3. Parse/validate exclusively from `local_buf[0..len]`.
+     ```
+   - Never dereference a guest-supplied pointer directly as a host pointer, and
+     always verify `!physmem.isHypervisorMemory(hpa)` when mapping memory.
 3. **Deterministic Resource Reclamation & Page Zeroization**:
    - Every physical page allocated to a guest VM (`physmem`) must be scrubbed
      (zeroed) before allocation or upon reclamation so residual guest data or
@@ -26,8 +43,13 @@
    - When a guest terminates, recursively terminate all descendant VMs (zero
      orphans) and reclaim 100% of its physical pages, page tables, and vCores.
 4. **IRQ-Safe Locking & SMP Memory Ordering**:
-   - Spinlocks acquired in paths reachable from `xint_handler` must disable
-     machine interrupts (`const flags = lock.lock(); defer lock.unlock(flags);`).
+   - Always use the canonical `Spinlock` in `hypervisor/core/atomic.zig` which
+     saves, disables, and restores machine interrupts (`MSTATUS_MIE`) so a trap
+     handler on the same hart cannot deadlock on a held lock:
+     ```zig
+     const flags = lock.lock();
+     defer lock.unlock(flags);
+     ```
    - Follow a strict lock acquisition order (`global_guest_lock` $\rightarrow$
      parent `guest.lock` $\rightarrow$ child `guest.lock` $\rightarrow$
      `physmem` / `pcore` locks) and never hold a spinlock across `hw_run_vcore`
@@ -72,3 +94,11 @@ Never confuse address spaces; include the address space in variable names
 - **GVA**: Guest Virtual Address (translated via VS-stage in guest OS).
 - Always issue `hfence.gvma` when `gstage_dirty` is set before `mret`, and
   `fence.i` after emitting JIT translation blocks in `dynarec`.
+- **H-Extension CSR Banking Caveat (`senvcfg` vs. `henvcfg`)**: While most
+  S-mode CSRs (`0x100..0x180`) have VS-mode shadow CSRs at `0x200..0x280`
+  (e.g., `vsstatus` at `0x200`, `vstimecmp` at `0x24d`), **CSR `0x20a` does not
+  exist** in the RISC-V Privileged Architecture. Hypervisor environment
+  configuration is in `henvcfg` (`0x60a`), and guest supervisor environment
+  configuration (`readVsenvcfg` / `writeVsenvcfg`) is accessed via `senvcfg`
+  (`0x10a`). Executing `csrr`/`csrw 0x20a` in M-mode triggers an immediate
+  illegal-instruction fatal exception (`MTVAL: 0x20a02573`).

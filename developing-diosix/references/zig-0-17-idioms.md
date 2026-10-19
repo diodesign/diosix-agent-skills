@@ -51,18 +51,48 @@ prongs using `@"..."` (e.g., `.@"--ram"`, `.@"-m"`).
 | `@import("builtin").cpu` | `@import("builtin").target.cpu` (`.os`, `.abi`, `.ofmt`) |
 | `std.builtin.OptimizeMode` | `std.lang.Optimize` (`.debug`, `.safe`, `.fast`, `.small`) |
 
-## 3. Explicit Integer Division & Overflow Safety
+## 3. Explicit Integer Widths, Division & Overflow Safety
 
-- Always specify rounding intent on signed or inexact division:
+- **Fixed-Width Types in ABI & Architectural State**: Never use `usize` or
+  `isize` in `extern struct` / `packed struct` ABI definitions (`sbi.zig`,
+  `api.zig`, ELF/FDT headers) or 64-bit guest register files. Always use
+  explicit fixed-width types (`u64`, `u32`, `u16`, `u8`) so layouts are
+  identical across 64-bit and 32-bit targets.
+- **Explicit Type Annotation on `@min` / `@max` with Literals**: In Zig,
+  `@min(runtime_usize, 1280)` narrows the result type to `u11` (the smallest
+  unsigned integer fitting `1280`)! Multiplying `y * row_w` will then panic
+  with integer overflow. Always annotate the destination type explicitly:
+  ```zig
+  // GOOD: Explicitly typed as usize so `y * row_w` cannot overflow u11.
+  const row_w: usize = @min(surface.width, 1280);
+
+  // BAD: Infers `row_w` as `u11`, panicking when `y * row_w >= 2048`!
+  const row_w = @min(surface.width, 1280);
+  ```
+- **Rounding Intent on Division**: Always specify rounding intent on signed or
+  inexact division:
   - `@divTrunc(a, b)` (toward zero)
   - `@divFloor(a, b)` (toward $-\infty$)
   - `@divCeil(a, b)` (toward $+\infty$)
   - `@divExact(a, b)` (asserts zero remainder)
-- Use checked arithmetic (`std.math.add`, `std.math.mul`, `std.math.sub`) when
-  computing buffer sizes, offsets, GPA/HPA ranges, or ELF segment bounds from
-  untrusted inputs.
+- **Checked Arithmetic**: Use `std.math.add`, `std.math.mul`, and
+  `std.math.sub` when computing buffer sizes, offsets, GPA/HPA ranges, or ELF
+  segment bounds from untrusted inputs.
 
-## 4. Reflection & Build System Hygiene
+## 4. Guiding `zig fmt` to <= 80 Columns
+
+`zig fmt` preserves single-line calls and initializers unless you give it a
+syntactic line-break hint:
+- **Trailing Commas**: Add a trailing comma after the last argument of a
+  function call, struct literal, or switch prong argument list so `zig fmt`
+  wraps it cleanly across multiple lines <= 80 columns.
+- **String Concatenation & Multiline Strings**: Split long format strings
+  across lines with `++` or `\\` multiline string literals rather than letting
+  strings exceed column 80.
+- **Module-Level Aliases**: Bind deeply nested imports at the top of the file
+  (`const sbi = @import("interface").sbi;`) to keep type signatures concise.
+
+## 5. Reflection & Build System Hygiene
 
 - `@hasDecl(T, "name")` returns `true` **only** for `pub` declarations, even
   within the same file.
@@ -72,3 +102,5 @@ prongs using `@"..."` (e.g., `.@"--ram"`, `.@"-m"`).
   - Use `run_cmd.addPassthruArgs()` instead of inspecting `b.args`.
   - Use `b.findProgramLazy(...)` instead of `b.findProgram(...)`.
   - Register all file inputs to system commands via `addFileInput(b.path(...))`.
+  - Keep module flags (`--dep interface -Mroot=... -Minterface=...`) in
+    `scripts/build_rootvm.sh` 100% synchronized with `build.zig`.
