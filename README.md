@@ -119,32 +119,76 @@ environment that supports the `SKILL.md` format.
 
 ### Google Antigravity
 
-You can install these skills for a single workspace or globally for your user
-account. Google Antigravity automatically discovers installed skills across the
-Antigravity IDE, the `agy` CLI, and the Antigravity desktop GUI:
+Google Antigravity finds skills in two ways. It discovers any skill directory
+containing a `SKILL.md` file under `.agents/skills/` (or `.agent/skills/`) in
+your Diosix workspace, and it loads any directory that you register in
+`.agents/skills.json`. Either way, the Antigravity IDE, the `agy` CLI, and the
+Antigravity desktop GUI pick up the skills. Antigravity scans one directory
+level deep, so each skill directory must sit directly inside the scanned
+directory.
 
-*   **Workspace installation (project-specific)**: Copy or symlink the
-    `developing-diosix`, `documenting-diosix`, and `reviewing-diosix`
-    directories into `<project-root>/.agents/skills/` inside your Diosix
-    checkout. Alternatively, clone this repository anywhere on your machine and
-    register its path in `<project-root>/.agents/skills.json`:
+Use one of the following methods to install the skills.
 
-    ```json
-    {
-      "entries": [
-        { "path": "/path/to/diosix/skills" }
-      ]
-    }
-    ```
+#### Clone into the skills directory (recommended)
 
-*   **Global installation (user-wide)**: Copy or symlink the skill directories
-    into `~/.gemini/config/skills/`, or register this repository's path in
-    `~/.gemini/config/skills.json` to make the skills available across all
-    workspaces.
+Clone this repository directly into `.agents/skills/` at the root of your
+Diosix workspace. Each skill directory in the repository root then sits
+directly under `.agents/skills/`:
 
-In the Antigravity GUI and IDE, you can inspect and manage active skills from
-the **Skills & Customizations** panel. For more information on configuring and
-using skills, see the
+```shell
+mkdir -p .agents
+git clone https://github.com/diodesign/diosix-agent-skills.git .agents/skills
+```
+
+To update the skills, run `git -C .agents/skills pull`.
+
+#### Clone elsewhere and symlink
+
+Clone this repository outside your workspace, then symlink each skill into
+`.agents/skills/`. Use this method to share one checkout of the skills across
+several workspaces:
+
+```shell
+git clone https://github.com/diodesign/diosix-agent-skills.git \
+    ~/src/diosix-agent-skills
+mkdir -p .agents/skills
+for skill in developing-diosix documenting-diosix reviewing-diosix; do
+    ln -s ~/src/diosix-agent-skills/"$skill" .agents/skills/"$skill"
+done
+```
+
+#### Clone elsewhere and register with skills.json
+
+Instead of symlinking, clone this repository outside your workspace and
+register its path in `.agents/skills.json` at the root of your Diosix
+workspace. Antigravity scans the registered directory one level deep, so it
+finds each skill directory in the repository root. Use this method to share one
+checkout of the skills across several workspaces without creating symlinks:
+
+```shell
+git clone https://github.com/diodesign/diosix-agent-skills.git \
+    ~/src/diosix-agent-skills
+mkdir -p .agents
+```
+
+Then create `.agents/skills.json` with the absolute path to your clone:
+
+```json
+{
+  "entries": [
+    { "path": "/home/your-user/src/diosix-agent-skills" }
+  ]
+}
+```
+
+#### Verify the installation
+
+Reload your skills, then confirm that Antigravity reports the three Diosix
+skills. In the `agy` CLI, run `/skills reload`. The output lists
+`developing-diosix`, `documenting-diosix`, and `reviewing-diosix` as added.
+
+In the Antigravity GUI and IDE, you can also inspect active skills in the
+**Skills & Customizations** panel. For more information on skills, see the
 [Antigravity documentation](https://antigravity.google/docs) and the
 [Antigravity agent skills guide](https://antigravity.google/docs/skills).
 
