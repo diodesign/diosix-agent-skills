@@ -78,6 +78,21 @@ prongs using `@"..."` (e.g., `.@"--ram"`, `.@"-m"`).
 - **Checked Arithmetic**: Use `std.math.add`, `std.math.mul`, and
   `std.math.sub` when computing buffer sizes, offsets, GPA/HPA ranges, or ELF
   segment bounds from untrusted inputs.
+- **Lowercase Hexadecimal & Named Bitmask/Page-Offset Helpers**: Always write
+  hexadecimal literals in lowercase (`0xfff`, `0x8000_0000`, `0xffff_ffff`,
+  never `0xFFF` or `0xFFFFFFFF`). Never write raw magic bitmasks like
+  `if ((vaddr & 0xfff) > 0xffc)` — which at first glance looks like a check on
+  the first 4 KiB of memory rather than a 4 KiB page-boundary straddle check.
+  Define named constants and inline predicates instead:
+  ```zig
+  pub const PAGE_SHIFT = 12;
+  pub const PAGE_SIZE: u32 = 1 << PAGE_SHIFT;
+  pub const PAGE_OFFSET_MASK: u32 = PAGE_SIZE - 1; // 0xfff
+
+  inline fn crossesPageBoundary(vaddr: u32, size: u32) bool {
+      return (vaddr & PAGE_OFFSET_MASK) > (PAGE_SIZE - size);
+  }
+  ```
 
 ## 4. Guiding `zig fmt` to <= 80 Columns
 

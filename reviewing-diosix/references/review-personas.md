@@ -16,11 +16,15 @@ structural bloat.*
       `PAGE_SIZE`, `alignUp`/`alignDown`, `isValidSafeName`, JSON escaping)
       imported from `hypervisor/core/atomic.zig`, `hypervisor/interface/`, or
       `common.zig` rather than duplicated in leaf files?
-- [ ] **Fixed-Width ABI Types & `@min` Type Annotations**: Do `extern struct` /
-      `packed struct` ABI types and 64-bit guest registers use explicit `u64` /
-      `u32` / `u16` / `u8` instead of `usize`? Are `@min` / `@max` calls with
-      comptime literals explicitly typed (`const row_w: usize = @min(w, 1280);`)
-      so Zig does not infer a narrow integer type (`u11`)?
+- [ ] **Fixed-Width ABI Types, Lowercase Hex & Named Bitmasks**: Do
+      `extern struct` / `packed struct` ABI types and 64-bit guest registers use
+      explicit `u64` / `u32` / `u16` / `u8` instead of `usize`? Are `@min` /
+      `@max` calls with comptime literals explicitly typed
+      (`const row_w: usize = @min(w, 1280);`) so Zig does not infer a narrow
+      integer type (`u11`)? Are all hexadecimal literals lowercase (`0xfff`,
+      `0xffff_ffff`), and are raw magic bitmasks (`(vaddr & 0xfff) > 0xffc`)
+      replaced with named constants or helpers (`PAGE_OFFSET_MASK`,
+      `crossesPageBoundary`)?
 - [ ] **No Static Buffer Guessing**: Are fixed stack buffers (`var buf:
       [4096]u8`) used where an allocator is available? Replace them with
       dynamic allocations (`allocator.print`, `allocator.alloc`, `ArrayList`).

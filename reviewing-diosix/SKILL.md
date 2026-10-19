@@ -37,7 +37,9 @@ the authoring skills eliminates pre-commit and pre-merge rework.
    - Audit every modified file and its surrounding context through four
      distinct lenses:
      1. **Skeptical Veteran Engineer** (completeness, idioms, subfolder
-        hierarchy instead of flat `prefix_subname.zig` files, zero copy-paste
+        hierarchy instead of flat `prefix_subname.zig` files, lowercase hex
+        literals `0xfff`, named constants/helpers like `PAGE_OFFSET_MASK` and
+        `crossesPageBoundary` instead of magic bitmasks, zero copy-paste
         duplication of `Spinlock`/alignment/path validators, explicit
         fixed-width `u64` ABI types instead of `usize`, explicit `usize` type
         annotations on `@min`/`@max` with literals, componentizing >500-line

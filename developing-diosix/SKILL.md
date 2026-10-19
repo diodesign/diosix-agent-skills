@@ -41,13 +41,17 @@ first pass without pre-commit rework.
 4. **Idiomatic Dispatch**: Never write `if (std.mem.eql(...)) else if (...)`
    chains for commands, flags, or config keys. Define an `enum`, parse with
    `std.meta.stringToEnum(EnumType, slice)`, and dispatch with `switch`.
-5. **Explicit Fixed-Width ABI Types & Narrow-Inference Guards**: Use explicit
-   fixed-width types (`u64`, `u32`, `u16`, `u8`) in all ABI/hardware structs
-   (`extern struct`, `packed struct`) and 64-bit guest register state — never
-   `usize` or C `unsigned long`. Always annotate local variables initialized
-   from `@min`/`@max` with a comptime literal
+5. **Explicit Fixed-Width ABI Types, Lowercase Hex & Named Bitmasks**: Use
+   explicit fixed-width types (`u64`, `u32`, `u16`, `u8`) in all ABI/hardware
+   structs (`extern struct`, `packed struct`) and 64-bit guest register state —
+   never `usize` or C `unsigned long`. Always annotate local variables
+   initialized from `@min`/`@max` with a comptime literal
    (`const w: usize = @min(n, 1280);`) so Zig does not infer a narrow integer
-   type (`u11`) that overflows later.
+   type (`u11`) that overflows later. Write all hexadecimal literals in
+   lowercase (`0xfff`, `0xffff_ffff`, never `0xFFF`), and replace magic
+   bitmasks/offsets (`(vaddr & 0xfff) > 0xffc`) with named constants and
+   self-documenting helpers (`PAGE_OFFSET_MASK`,
+   `crossesPageBoundary(vaddr, @sizeOf(u32))`).
 6. **Dynamic Allocation Over Static Guessing**: Only early M-mode boot code
    executing before heap initialization may use fixed static buffers. Once an
    allocator is available, allocate and grow buffers dynamically rather than
