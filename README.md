@@ -91,7 +91,8 @@ from entering the repository by enforcing a four-step verification workflow
 before any change is committed or merged.
 
 *   **Build, completeness, and test gate**: Verify that features are 100%
-    implemented without `TODO` placeholders, confirm unit tests are co-located
+    implemented without `TODO` placeholders, surgically remove unused functions
+    or globals and their orphaned unit tests, confirm unit tests are co-located
     in source files while integration tests reside in `tests/`, and run
     `./scripts/build.sh` and `./scripts/build.sh test --summary all` with zero
     warnings or leaks.

@@ -21,7 +21,10 @@ first pass without pre-commit rework.
    compile cleanly across both the Root VM/hypervisor build and the host unit
    test suite (`./scripts/build.sh` and `./scripts/build.sh test`). Never leave
    broken code, stubbed `TODO` placeholders, mocked production paths, or
-   partially implemented features.
+   partially implemented features. When replacing or refactoring code,
+   surgically remove any function, global variable (`var`/`const`), or type that
+   no longer has a production caller—along with its unit tests—rather than
+   leaving dead declarations behind.
 2. **Line & File Limits (Componentize into Subfolders, Never Truncate)**: Wrap
    all code and comments at **<= 80 columns**. Keep source files **<= 500
    lines**. When a file grows past 500 lines, never truncate its functionality
@@ -63,11 +66,24 @@ first pass without pre-commit rework.
    input or state; return an SBI error or terminate the offending guest
    subtree. Copy shared guest memory once (`@memcpy`) into hypervisor-owned
    memory before validation to prevent double-fetch (TOCTOU) vulnerabilities.
-9. **Mechanism in Code, Policy in Build/Run-Time Config**: Never hardcode
-   policy-level settings or tunable defaults in Zig code. Move tunables and
-   settings to build-time configuration (`build.zig` options /
-   `boot/hypervisor.conf`) or run-time configuration files
-   (`/etc/diosix/*.toml`, keeping `key = "value"` on single lines <= 80 cols).
+9. **Code Is Mechanism, Configuration Lives Outside the Code**: Never hardcode
+   policy-level settings, tunable defaults, file paths, or inventories of
+   files in Zig, shell, or Python logic. Move tunables and settings to
+   build-time configuration (`build.zig` options / `boot/hypervisor.conf`) or
+   run-time configuration files (`/etc/diosix/*.toml`, keeping
+   `key = "value"` on single lines <= 80 cols). This covers the build itself:
+   - `build.zig` and `scripts/*` must not carry hand-maintained source-file
+     arrays (`ctl_sources`), repeated repository-path string literals
+     (`"tools/guest-shim/src/main.zig"`, `"hypervisor/core/metadata.zig"`), or
+     per-file cache-input lists. Discover sources by walking a directory, or
+     read a declarative layout/manifest file that is data, not code. Adding,
+     renaming, or splitting a source file must never require editing
+     `build.zig`.
+   - Every path, binary name, and install location is defined exactly once
+     (a layout manifest or a single constants block) and referenced by name.
+   - Runtime absolute paths (`/etc/diosix`, `/var/lib/diosix`, `/run/diosix`)
+     are resolved through `sysconfig.zig` or one named constant, never
+     repeated as literals across modules.
 10. **Build Binaries & Images at Build Time, Not on the Fly in Zig**: Avoid
     assembling ELF binaries, machine-code shims, or media images word-by-word at
     runtime in Zig. Keep shims in assembly or Zig source files compiled during

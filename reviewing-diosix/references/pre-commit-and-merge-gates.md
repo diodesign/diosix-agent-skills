@@ -5,9 +5,18 @@ every gate below passes with zero errors.
 
 ## Gate 1: Completeness, Formatting & Structural Limits
 
-1. **No Stubs or Partial Implementations**:
+1. **No Stubs, Partial Implementations, or Dead Code**:
    - Confirm the feature or fix works end-to-end as designed with zero `TODO`
      placeholders, dead code, or mocked production paths.
+   - **Dead-Code & Orphaned-Test Audit**: For every function, global variable
+     (`var`/`const`), type, or struct field that was superseded, refactored, or
+     left behind in modified files, verify it has at least one **non-test**
+     reference across `hypervisor/`, `tools/`, `build.zig`, and `scripts/`.
+     Because Zig does not warn on unused top-level declarations and
+     `std.testing.refAllDecls(@This())` masks unused `pub` items, explicitly
+     check that no symbol is kept alive solely by its own `test` block. Delete
+     any unused function, global variable, or constant along with its unit
+     tests.
 2. **Zig Formatter & Line/File Audit (Scoped to Tracked Directories)**:
    > **Warning**: Never run unscoped `zig fmt .` or Python
    > `glob.glob("**/*.zig", recursive=True)` from the repository root, because
@@ -66,9 +75,18 @@ every gate below passes with zero errors.
    ```bash
    ./scripts/build.sh
    ```
-   Confirm `build.zig` (`addFileInput`) and `scripts/build_rootvm.sh` include
-   all new or renamed source and configuration files with matching `--dep` and
-   `-M` module flags.
+   Confirm adding, renaming, or splitting a source file required **no edit** to
+   `build.zig` or `scripts/build_rootvm.sh`: sources and cache inputs are
+   discovered or read from a layout manifest, never from hand-maintained
+   arrays. A new file that must be listed by hand in `build.zig`, a script, or
+   a test list is a failing finding (the Hard-Coded-Path Smell). Confirm the
+   Root VM cache hash still covers the new file's directory, and that `--dep`
+   and `-M` module flags still match. Run this audit and expect no matches
+   outside the single layout definition:
+   ```bash
+   grep -nE '"(hypervisor|tools|scripts|boot|docs)/[^"]+"' build.zig
+   grep -nE '(_sources|_inputs) *= *\[' build.zig
+   ```
 3. **QEMU Integration Suite (for SBI, `/dev/diosix`, manifests, or CLI)**:
    ```bash
    ./scripts/test_manifest_integration.py

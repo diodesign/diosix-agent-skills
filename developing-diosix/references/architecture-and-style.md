@@ -10,6 +10,14 @@ engineering, and TigerStyle (**Safety > Performance > Developer Experience**).
 - **No Stubs or Silent No-Ops**: Never commit `TODO` placeholders, unimplemented
   branches that silently succeed, or hardcoded mock returns in production code
   paths.
+- **Surgically Remove Dead Code & Orphaned Unit Tests**: Zig does not warn on
+  unused top-level declarations (`fn`, `pub fn`, `var`, `const`), and
+  `std.testing.refAllDecls(@This())` or an old `test` block will keep an unused
+  function or global variable compiling even after its last production caller is
+  gone. Whenever you replace a helper, refactor a module, or simplify a flow,
+  search across `hypervisor/`, `tools/`, `build.zig`, and `scripts/` to verify
+  whether the old functions, globals, constants, or types still have any
+  non-test callers. If not, delete them and their unit tests immediately.
 - **English Prose in Comments**: Write all comments and docstrings in clear,
   grammatically correct English with verified spelling. Start every comment
   sentence with a capital letter and end with a period. Explain *why* a design
@@ -136,6 +144,39 @@ category-specific replacements:
   build-time (`build.zig` options / `boot/hypervisor.conf`) or run-time
   (`/etc/diosix/*.toml`: `diosix.toml`, `catalog.toml`, `charter.toml`,
   `install.toml`, `system.toml`) configuration files.
+- **Configuration Lives Outside the Code (Build Graph Included)**: The build
+  script is code, so it must be the *mechanism* that turns a description of
+  the repository into build steps. It must not *be* that description.
+  - **The Hard-Coded-Path Smell**: A string literal naming a repository path
+    (`"tools/guest-shim/linker.ld"`, `"hypervisor/core/metadata.zig"`,
+    `"scripts/build_rootvm.sh"`), a binary or install name, or an array of
+    source files (`ctl_sources`, `gui_sources`, `extra_rootvm_inputs`) inside
+    `build.zig`, a shell script, or a Python test is configuration embedded in
+    code. It rots silently: every refactor (such as splitting a 500-line file)
+    forces a matching edit, and a missed edit produces a stale cache hash or a
+    missing input rather than a compile error.
+  - **Test for the smell**: Create a new `.zig` file inside
+    `tools/diosix-ctl/src/` and run `zig build test`. If `build.zig`, a script,
+    or a test list must change for the new file to be built, hashed, or
+    tested, the layout is hard-coded.
+  - **Fix pattern**:
+    1. Define each repository location once, as data: a small layout file
+       (for example `build/layout.zon`) or one `Layout` struct at the top of
+       `build.zig` that names every root (`hypervisor_root`, `tools_root`,
+       `guest_shim_dir`, `linker_script`), and derive every other path from
+       those names with `b.path` / `std.fs.path.join`.
+    2. Derive file lists by directory discovery (walk the source root at
+       configure time, filter by extension, sort for determinism) instead of
+       enumerating files. Feed the same discovered list to `addFileInput` so
+       the Root VM cache hash tracks real inputs automatically.
+    3. Pass tunables and per-target choices as `b.option` values or read them
+       from `boot/*.conf` / `/etc/diosix/*.toml`.
+    4. Keep scripts parameterized by arguments or environment instead of
+       repeating the same path in several scripts.
+  - **Runtime paths follow the same rule**: Tools resolve `/etc/diosix`,
+    `/var/lib/diosix`, `/run/diosix`, `/usr/share/diosix`, and device nodes
+    through `sysconfig.zig` accessors or one named constants block. They are
+    never repeated as string literals across modules.
 - **Single-Line TOML Key-Value Pairs**: Lightweight U-mode TOML parsers
   (`sysconfig.zig`, `charter.zig`) parse `key = "value"` line-by-line. In
   `/etc/diosix/*.toml`, wrap `#` comments at <= 80 columns and keep

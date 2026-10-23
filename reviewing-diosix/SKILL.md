@@ -20,8 +20,17 @@ the authoring skills eliminates pre-commit and pre-merge rework.
 1. **Build, Completeness & Test Gate (Table Stakes)**:
    - Verify the feature is 100% implemented as designed with zero `TODO` stubs,
      dead code, or mocked production paths.
+   - **Surgically identify and remove dead code and its unit tests**: Zig does
+     not warn on unused top-level functions, globals (`var`/`const`), or types,
+     and `std.testing.refAllDecls(@This())` or an old `test` block can make
+     unused production code appear referenced. For every replaced, refactored,
+     or suspicious symbol in touched modules, search across `hypervisor/`,
+     `tools/`, `build.zig`, and `scripts/` to confirm it has at least one
+     non-test production caller. If a function, global variable, constant, or
+     type is unused in production (or kept alive solely by its unit tests),
+     delete it and its corresponding unit tests immediately.
    - When refactoring files over the 500-line limit, **never** truncate
-     functionality or unit tests; always componentize oversized files into
+     live functionality or unit tests; always componentize oversized files into
      cohesive subfolders (`vm/run.zig`, `panes/modal.zig`, `tests/gui.zig`)
      rather than flat `prefix_subname.zig` files, and verify every submodule is
      referenced in its parent's `test` block (`_ = @import("vm/run.zig");`) so
@@ -36,18 +45,22 @@ the authoring skills eliminates pre-commit and pre-merge rework.
 2. **4-Persona Deep Review**:
    - Audit every modified file and its surrounding context through four
      distinct lenses:
-     1. **Skeptical Veteran Engineer** (completeness, idioms, subfolder
-        hierarchy instead of flat `prefix_subname.zig` files, lowercase hex
-        literals `0xfff`, named constants/helpers like `PAGE_OFFSET_MASK` and
-        `crossesPageBoundary` instead of magic bitmasks, zero copy-paste
-        duplication of `Spinlock`/alignment/path validators, no historical
-        candidate-list fallback arrays like `DEFAULT_GUEST_CANDIDATES` for
-        co-versioned internal paths, explicit fixed-width `u64` ABI types
-        instead of `usize`, explicit `usize` type annotations on `@min`/`@max`
-        with literals, componentizing >500-line files without truncation,
-        <=80-col limit, dynamic vs. static buffers, externalizing policy to
-        build/run-time config, no on-the-fly binary/ELF/image synthesis in Zig,
-        no generated files inside `tools/overlay-common/`)
+     1. **Skeptical Veteran Engineer** (completeness, idioms, surgical removal
+        of unused functions/globals/constants and their orphaned unit tests,
+        subfolder hierarchy instead of flat `prefix_subname.zig` files,
+        lowercase hex literals `0xfff`, named constants/helpers like
+        `PAGE_OFFSET_MASK` and `crossesPageBoundary` instead of magic bitmasks,
+        zero copy-paste duplication of `Spinlock`/alignment/path validators, no
+        historical candidate-list fallback arrays like
+        `DEFAULT_GUEST_CANDIDATES` for co-versioned internal paths, explicit
+        fixed-width `u64` ABI types instead of `usize`, explicit `usize` type
+        annotations on `@min`/`@max` with literals, componentizing >500-line
+        files without truncating live code, <=80-col limit, dynamic vs. static
+        buffers, externalizing policy to build/run-time config, no hard-coded
+        repository paths, binary names, or hand-maintained source-file arrays
+        in `build.zig`/scripts (the Hard-Coded-Path Smell: code is mechanism,
+        configuration lives outside it), no on-the-fly binary/ELF/image
+        synthesis in Zig, no generated files inside `tools/overlay-common/`)
      2. **Paranoid Security Expert** (hypervisor blast-radius isolation,
         single-copy double-fetch/TOCTOU prevention on guest memory, IRQ-safe
         locking via `atomic.Spinlock`, crypto/page zeroization, checked

@@ -10,6 +10,24 @@ structural bloat.*
 - [ ] **Complete & Working Implementation**: Does the code build cleanly and
       implement 100% of the design without `TODO` stubs, fake fallbacks, or
       half-wired flags?
+- [ ] **Surgical Dead-Code & Orphaned-Test Removal (The Kept-Alive-by-Tests
+      Smell)**:
+      - Zig lazily analyzes top-level declarations (`fn`, `pub fn`, `var`,
+        `const`) and does **not** emit compiler warnings when they are unused.
+        Even worse, `std.testing.refAllDecls(@This())` or a leftover `test`
+        block will keep an obsolete function or global variable compiling
+        cleanly long after its last production caller was removed.
+      - Whenever a change replaces a helper, refactors a workflow, or modifies a
+        module, grep across `hypervisor/`, `tools/`, `build.zig`, and `scripts/`
+        for every touched or superseded function, global variable (`var` /
+        `const`), struct field, error tag, and type.
+      - Verify that each symbol has at least one **non-test production call
+        site or reference** (excluding documented external ABI definitions in
+        `hypervisor/interface/` and `tools/driver/diosix.h`).
+      - If a symbol has zero production callers—or is referenced **only** inside
+        `test` blocks—**delete the dead declaration and its unit tests
+        immediately**. Do not retain unused functions, globals, or commented-out
+        code "just in case."
 - [ ] **No `std.mem.eql` Chains**: Are all command, flag, and key dispatches
       using `enum` + `std.meta.stringToEnum` + `switch`?
 - [ ] **Zero Copy-Paste Primitives**: Are shared primitives (`Spinlock`,
@@ -51,11 +69,14 @@ structural bloat.*
       `panes_modal.zig`, `auth_cmd.zig`) or `diosix_`-prefixed files?
 - [ ] **Zig 0.17 Compliance**: Are `@backingInt`, `@fromBackingInt`, `@splat`,
       `allocator.print`, `list.last()`, and `SafeAllocator` used consistently?
-- [ ] **Mechanism vs. Policy & Overlay Purity**: Are policy-level settings and
-      tunables defined in build-time (`build.zig` / `boot/hypervisor.conf`) or
+- [ ] **Mechanism vs. Policy and Overlay Purity**: Are policy-level settings
+      and tunables defined in build-time (`build.zig` options /
+      `boot/hypervisor.conf`) or
       run-time (`/etc/diosix/*.toml`, with single-line `key = "value"` pairs
       <= 80 cols) configuration files rather than hardcoded in Zig? Is
       `tools/overlay-common/` free of generated binaries or build artifacts?
+      (Paths and file inventories are covered by the Hard-Coded-Path Smell
+      below.)
 - [ ] **No On-the-Fly Binary or Image Synthesis in Zig**: Does the code hand-
       craft ELF binaries, machine-code shims, or disk/media images word-by-word
       at runtime in Zig (e.g., `synthesizeMinimalRiscv64Elf`)? Replace runtime
@@ -70,6 +91,30 @@ structural bloat.*
       migrations once at the boot/install boundary, and require a
       `// DEPRECATED(26.x): remove in 27.0` comment on any genuine external
       compatibility alias.
+- [ ] **No Hard-Coded Paths or Build Inventory (The Hard-Coded-Path Smell)**:
+      Is configuration embedded in code? Flag every one of these in
+      `build.zig`, `scripts/*`, tests, and tools:
+      - String literals naming repository paths
+        (`"tools/guest-shim/src/main.zig"`, `"tools/guest-shim/linker.ld"`,
+        `"hypervisor/core/metadata.zig"`, `"scripts/build_rootvm.sh"`) rather
+        than values derived from one layout definition.
+      - Hand-maintained arrays of source files or cache inputs
+        (`ctl_sources`, `gui_sources`, `shim_sources`, `extra_rootvm_inputs`).
+        These must be discovered from the directory tree or read from a
+        declarative manifest, so adding, renaming, or splitting a file never
+        needs a `build.zig` edit.
+      - The same path or binary name repeated across `build.zig` and several
+        scripts, or runtime absolute paths (`/etc/diosix`, `/var/lib/diosix`,
+        `/run/diosix`, `/usr/share/diosix`) repeated as literals across tool
+        modules instead of one `sysconfig.zig` accessor or constant.
+      - **Acceptance test**: add an empty-but-valid `.zig` file to a tool
+        source directory. If the build, cache hash, or test list needs any
+        edit to notice it, report the hard-coded inventory as a finding.
+- [ ] **No Silent Format Overflow or Guessed Buffer Sizes**: Is any
+      `bufPrint(...) catch return`, `catch ""`, or `catch "--"` hiding a
+      too-small buffer? Is every remaining fixed buffer a named constant with a
+      comment justifying its size? Console output should use
+      `common.printFmt` and stored strings `allocator.print`.
 - [ ] **No Swallowed Errors**: Are all error unions handled explicitly via
       `try`, `catch`, or `errdefer` (no silent `_ = foo() catch {};`)?
 

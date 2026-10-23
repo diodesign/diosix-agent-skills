@@ -33,6 +33,26 @@ fn printUsageBad() void {
 }
 ```
 
+### Never Swallow a Formatting Failure
+
+`std.fmt.bufPrint(...) catch return`, `catch ""`, and `catch "--"` turn a
+too-small buffer into silent missing output. Prefer, in order:
+
+1. A print helper that cannot fail silently: `common.printFmt(fmt, args)`
+   formats into a small scratch buffer and spills to the heap, so nothing is
+   truncated or dropped. Use it for all console output.
+2. `allocator.print(...)` with `defer allocator.free(...)` for strings that are
+   stored, serialized, or sent elsewhere (JSON, files, command lines).
+3. For text drawn into a fixed-capacity widget (the GUI `Icon.text_buf`), a
+   stack scratch buffer is acceptable only when its size is one named
+   constant tied to that capacity and overflow truncates deliberately to the
+   longest prefix that fits (`label.fmtLabel`) rather than blanking the text.
+
+Every remaining fixed-size buffer needs a named constant and a one-line
+comment explaining why that size is correct (`PATH_MAX`, one `getdents64`
+record, a hex digest length, a derived `comptime` maximum). Bare `[128]u8`,
+`[256]u8`, and `[512]u8` guesses are findings.
+
 ## 2. When Static Resources Are Permitted
 
 Static buffers or pre-allocated slabs are permitted **only** in:
